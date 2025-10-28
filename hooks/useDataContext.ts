@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { Project, Task, User, TimeLog, TaskStatus, Location, PunchListItem, ProjectPhoto, InventoryItem, OrderListItem, InventoryOrderItem, ManualOrderItem, ProjectType, Invoice, Expense } from '../types';
 import { setPhoto } from '../utils/db';
 import { addDays, subDays } from 'date-fns';
+import * as api from '../utils/api';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAyS8VmIL-AbFnpm_xmuKZ-XG8AmSA03AM'; // TODO: Move to environment variables
 
@@ -149,6 +150,15 @@ const defaultProjects: Project[] = [
 
 
 interface DataContextType {
+  // Auth state
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  authToken: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  register: (data: { email: string; password: string; name: string; role: string; organizationName?: string }) => Promise<void>;
+
+  // Data state
   users: User[];
   projects: Project[];
   tasks: Task[];
@@ -185,51 +195,118 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(() => getStoredItem('scc_users', defaultUsers));
-  const [projects, setProjects] = useState<Project[]>(() => getStoredItem('scc_projects', defaultProjects));
-  const [tasks, setTasks] = useState<Task[]>(() => getStoredItem('scc_tasks', []));
-  const [timeLogs, setTimeLogs] = useState<TimeLog[]>(() => getStoredItem('scc_timeLogs', []));
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => getStoredItem('scc_inventory', []));
-  const [orderList, setOrderList] = useState<OrderListItem[]>(() => getStoredItem('scc_orderList', []));
-  const [invoices, setInvoices] = useState<Invoice[]>(() => getStoredItem('scc_invoices', []));
-  const [expenses, setExpenses] = useState<Expense[]>(() => getStoredItem('scc_expenses', []));
-  const [currentUser, setCurrentUser] = useState<User | null>(() => getStoredItem('scc_currentUser', null));
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
 
-  // Persist state to localStorage on changes
-  useEffect(() => { localStorage.setItem('scc_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('scc_projects', JSON.stringify(projects)); }, [projects]);
-  useEffect(() => { localStorage.setItem('scc_tasks', JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { localStorage.setItem('scc_timeLogs', JSON.stringify(timeLogs)); }, [timeLogs]);
-  useEffect(() => { localStorage.setItem('scc_inventory', JSON.stringify(inventory)); }, [inventory]);
-  useEffect(() => { localStorage.setItem('scc_orderList', JSON.stringify(orderList)); }, [orderList]);
-  useEffect(() => { localStorage.setItem('scc_invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('scc_expenses', JSON.stringify(expenses)); }, [expenses]);
-  useEffect(() => { localStorage.setItem('scc_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  // Data state
+  const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [orderList, setOrderList] = useState<OrderListItem[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  // Load data from API when authenticated
+  const loadData = useCallback(async () => {
+    if (!authToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const [usersData, projectsData, tasksData, timeLogsData, inventoryData, invoicesData, expensesData, userData] = await Promise.all([
+        api.usersAPI.getAll(authToken).catch(() => []),
+        api.projectsAPI.getAll(authToken).catch(() => []),
+        api.tasksAPI.getAll(authToken).catch(() => []),
+        api.timeLogsAPI.getAll(authToken).catch(() => []),
+        api.inventoryAPI.getAll(authToken).catch(() => []),
+        api.invoicesAPI.getAll(authToken).catch(() => []),
+        api.expensesAPI.getAll(authToken).catch(() => []),
+        api.authAPI.getCurrentUser(authToken).catch(() => null),
+      ]);
+
+      setUsers(usersData);
+      setProjects(projectsData);
+      setTasks(tasksData);
+      setTimeLogs(timeLogsData);
+      setInventory(inventoryData);
+      setInvoices(invoicesData);
+      setExpenses(expensesData);
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      // Token might be invalid
+      setAuthToken(null);
+      localStorage.removeItem('auth_token');
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authToken]);
+
+  // Load data when auth token changes
   useEffect(() => {
-    if (users.length > 0 && !currentUser) {
-        const storedUser = getStoredItem<User | null>('scc_currentUser', null);
-        const userExists = storedUser ? users.some(u => u.id === storedUser.id) : false;
-        setCurrentUser(userExists ? storedUser : users[0]);
-    }
-    if (users.length === 0 && currentUser) {
-        setCurrentUser(null);
-    }
-  }, [users, currentUser]);
+    loadData();
+  }, [loadData]);
 
-  const addUser = useCallback(({ name, role, hourlyRate }: { name: string; role: string; hourlyRate: number; }) => {
-    setUsers(prev => {
-        const newUser: User = {
-          id: Math.max(0, ...prev.map(u => u.id)) + 1,
-          name,
-          role,
-          hourlyRate,
-          avatarUrl: `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2E5YTlhOSI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTguNjg1IDE5LjA5N0E5LjcyMyA5LjcyMyAwIDAwMjEuNzUgMTJjMC01LjM4NS00LjM2NS05Ljc1LTkuNzUtOS43NVMxLjI1IDYuNjE1IDEuMjUgMTJhOS43MjMgOS43MjMgMCAwMDMuMDY1IDcuMDk3QTkuNzE2IDkuNzE2IDAgMDAxMiAyMS43NWE5LjcxNiA5LjcxNiAwIDAwNi42ODUtMi42NTN6bS0xMi41NC0xLjI4NUE3LjQ4NiA3LjQ4NiAwIDAxMTIgMTVhNy40ODYgNy40ODYgMCAwMTUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMDExMiAyMC4yNWE4LjIyNCA4LjIyNCAwIDAxLTUuODU1LTIuNDM4ek0xNS43NSA5YTMuNzUgMy43NSAwIDExLTcuNSAwIDMuNzUgMy43NSAwIDAxNy41IDB6IiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+PC9zdmc+`,
-          isClockedIn: false,
-        };
-        return [...prev, newUser]
-    });
+  // Authentication functions
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const response = await api.authAPI.login({ email, password });
+      const token = response.token;
+      localStorage.setItem('auth_token', token);
+      setAuthToken(token);
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
   }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    setAuthToken(null);
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    // Clear all data
+    setUsers([]);
+    setProjects([]);
+    setTasks([]);
+    setTimeLogs([]);
+    setInventory([]);
+    setOrderList([]);
+    setInvoices([]);
+    setExpenses([]);
+  }, []);
+
+  const register = useCallback(async (data: { email: string; password: string; name: string; role: string; organizationName?: string }) => {
+    try {
+      const response = await api.authAPI.register(data);
+      const token = response.token;
+      localStorage.setItem('auth_token', token);
+      setAuthToken(token);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const addUser = useCallback(async ({ name, role, hourlyRate }: { name: string; role: string; hourlyRate: number; }) => {
+    if (!authToken) return;
+    try {
+      const newUser = await api.usersAPI.create({ name, role, hourlyRate }, authToken);
+      setUsers(prev => [...prev, newUser]);
+    } catch (error) {
+      console.error('Error adding user:', error);
+    }
+  }, [authToken]);
 
   const updateUser = useCallback((userId: number, data: Partial<Omit<User, 'id' | 'isClockedIn' | 'clockInTime' | 'currentProjectId'>>) => {
       let updatedUser: User | null = null;
@@ -245,17 +322,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   }, [currentUser]);
 
-  const addProject = useCallback((projectData: Omit<Project, 'id' | 'punchList' | 'photos'>) => {
-    setProjects(prev => {
-        const newProject: Project = {
-            ...projectData,
-            id: Math.max(0, ...prev.map(p => p.id)) + 1,
-            punchList: [],
-            photos: [],
-        };
-        return [...prev, newProject];
-    });
-  }, []);
+  const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'punchList' | 'photos'>) => {
+    if (!authToken) return;
+    try {
+      const newProject = await api.projectsAPI.create({
+        ...projectData,
+        punchList: [],
+        photos: []
+      }, authToken);
+      setProjects(prev => [...prev, newProject]);
+    } catch (error) {
+      console.error('Error adding project:', error);
+    }
+  }, [authToken]);
 
   const addTask = useCallback((taskData: Omit<Task, 'id' | 'status'>) => {
     setTasks(prev => {
@@ -585,14 +664,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
 
-  const value = useMemo(() => ({ 
+  const value = useMemo(() => ({
+      // Auth state
+      isAuthenticated, isLoading, authToken, login, logout, register,
+
+      // Data state
       users, projects, tasks, timeLogs, inventory, orderList, currentUser, invoices, expenses,
-      setCurrentUser, addUser, updateUser, addProject, addTask, updateTaskStatus, 
-      toggleClockInOut, switchJob, addPunchListItem, togglePunchListItem, addPhoto, 
-      addInventoryItem, updateInventoryItemQuantity, updateInventoryItem, addToOrderList, 
-      addManualItemToOrderList, removeFromOrderList, clearOrderList, 
+      setCurrentUser, addUser, updateUser, addProject, addTask, updateTaskStatus,
+      toggleClockInOut, switchJob, addPunchListItem, togglePunchListItem, addPhoto,
+      addInventoryItem, updateInventoryItemQuantity, updateInventoryItem, addToOrderList,
+      addManualItemToOrderList, removeFromOrderList, clearOrderList,
       addInvoice, updateInvoice, deleteInvoice, addExpense,
   }), [
+      isAuthenticated, isLoading, authToken, login, logout, register,
       users, projects, tasks, timeLogs, inventory, orderList, currentUser, invoices, expenses,
       addUser, updateUser, addProject, addTask, updateTaskStatus, toggleClockInOut,
       switchJob, addPunchListItem, togglePunchListItem, addPhoto, addInventoryItem,

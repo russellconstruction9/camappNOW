@@ -1,7 +1,8 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { DataProvider } from './hooks/useDataContext';
+import { DataProvider, useData } from './hooks/useDataContext';
 import Layout from './components/Layout';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Projects from './components/Projects';
 import ProjectDetails from './components/ProjectDetails';
