@@ -1,0 +1,8 @@
+{
+  "name": "Custom Solutions",
+  "description": "A professional project management app for constructors with robust time tracking, task management, and assignment features. The design is modern, data-driven, and prioritizes clarity and ease of use.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
