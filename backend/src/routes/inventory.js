@@ -1,15 +1,22 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { setOrganizationContext } from '../middleware/organization.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
+router.use(setOrganizationContext);
 
 // Get all inventory items
 router.get('/', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM inventory_items ORDER BY name ASC');
+        const { organizationId } = req;
+        
+        const result = await pool.query(
+            'SELECT * FROM inventory_items WHERE organization_id = $1 ORDER BY name ASC',
+            [organizationId]
+        );
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching inventory:', error);
@@ -20,6 +27,7 @@ router.get('/', async (req, res) => {
 // Create inventory item
 router.post('/', async (req, res) => {
     try {
+        const { organizationId } = req;
         const { name, quantity, unit, cost, lowStockThreshold } = req.body;
 
         if (!name || quantity === undefined || !unit) {
@@ -27,8 +35,8 @@ router.post('/', async (req, res) => {
         }
 
         const result = await pool.query(
-            'INSERT INTO inventory_items (name, quantity, unit, cost, low_stock_threshold) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [name, quantity, unit, cost || null, lowStockThreshold || null]
+            'INSERT INTO inventory_items (organization_id, name, quantity, unit, cost, low_stock_threshold) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [organizationId, name, quantity, unit, cost || null, lowStockThreshold || null]
         );
 
         res.status(201).json(result.rows[0]);
@@ -42,11 +50,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const { organizationId } = req;
         const { name, quantity, unit, cost, lowStockThreshold } = req.body;
 
         const result = await pool.query(
-            'UPDATE inventory_items SET name = $1, quantity = $2, unit = $3, cost = $4, low_stock_threshold = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-            [name, quantity, unit, cost || null, lowStockThreshold || null, id]
+            'UPDATE inventory_items SET name = $1, quantity = $2, unit = $3, cost = $4, low_stock_threshold = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 AND organization_id = $7 RETURNING *',
+            [name, quantity, unit, cost || null, lowStockThreshold || null, id, organizationId]
         );
 
         if (result.rows.length === 0) {
@@ -64,7 +73,12 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('DELETE FROM inventory_items WHERE id = $1 RETURNING id', [id]);
+        const { organizationId } = req;
+        
+        const result = await pool.query(
+            'DELETE FROM inventory_items WHERE id = $1 AND organization_id = $2 RETURNING id',
+            [id, organizationId]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Inventory item not found' });
@@ -78,4 +92,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
-

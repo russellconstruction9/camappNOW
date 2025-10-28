@@ -1,19 +1,22 @@
 import express from 'express';
 import pool from '../db/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { setOrganizationContext } from '../middleware/organization.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
+router.use(setOrganizationContext);
 
 // Get all tasks (with optional filters)
 router.get('/', async (req, res) => {
     try {
+        const { organizationId } = req;
         const { projectId, assigneeId, status } = req.query;
         
-        let query = 'SELECT * FROM tasks WHERE 1=1';
-        const params = [];
-        let paramCount = 0;
+        let query = 'SELECT * FROM tasks WHERE organization_id = $1';
+        const params = [organizationId];
+        let paramCount = 1;
 
         if (projectId) {
             paramCount++;
@@ -47,7 +50,12 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+        const { organizationId } = req;
+        
+        const result = await pool.query(
+            'SELECT * FROM tasks WHERE id = $1 AND organization_id = $2',
+            [id, organizationId]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Task not found' });
@@ -63,6 +71,7 @@ router.get('/:id', async (req, res) => {
 // Create task
 router.post('/', async (req, res) => {
     try {
+        const { organizationId } = req;
         const { title, description, projectId, assigneeId, dueDate, status } = req.body;
 
         if (!title || !projectId || !assigneeId || !dueDate) {
@@ -70,10 +79,10 @@ router.post('/', async (req, res) => {
         }
 
         const result = await pool.query(
-            `INSERT INTO tasks (title, description, project_id, assignee_id, due_date, status)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO tasks (organization_id, title, description, project_id, assignee_id, due_date, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [title, description || '', projectId, assigneeId, dueDate, status || 'To Do']
+            [organizationId, title, description || '', projectId, assigneeId, dueDate, status || 'To Do']
         );
 
         res.status(201).json(result.rows[0]);
@@ -87,11 +96,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const { organizationId } = req;
         const { title, description, projectId, assigneeId, dueDate, status } = req.body;
 
         const updates = [];
-        const params = [];
-        let paramCount = 0;
+        const params = [organizationId];
+        let paramCount = 1;
 
         if (title !== undefined) {
             paramCount++;
@@ -128,12 +138,11 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: 'No fields to update' });
         }
 
-        paramCount++;
         updates.push(`updated_at = CURRENT_TIMESTAMP`);
-        params.push(id);
         paramCount++;
+        params.push(id);
 
-        const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+        const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramCount} AND organization_id = $1 RETURNING *`;
         
         const result = await pool.query(query, params);
 
@@ -149,4 +158,3 @@ router.put('/:id', async (req, res) => {
 });
 
 export default router;
-
