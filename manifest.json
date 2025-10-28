@@ -8,20 +8,9 @@
   "theme_color": "#1E3A5F",
   "icons": [
     {
-      "src": "/scc-logo-72.png",
-      "sizes": "72x72",
-      "type": "image/png"
-    },
-    {
-      "src": "/scc-logo-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/scc-logo-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     }
   ]
 }
