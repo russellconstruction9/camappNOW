@@ -21,34 +21,57 @@ import InvoiceDetails from './components/InvoiceDetails';
 import InvoiceEditor from './components/InvoiceEditor';
 
 
+const AppContent: React.FC = () => {
+  const { isAuthenticated, isLoading } = useData();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading ConstructTrack Pro...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/:projectId" element={<ProjectDetails />} />
+        <Route path="/projects/:projectId/photos" element={<ProjectPhotos />} />
+        <Route path="/projects/:projectId/tasks" element={<Tasks />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/map" element={<MapView />} />
+        <Route path="/team" element={<Team />} />
+        <Route path="/time-tracking" element={<TimeTracking />} />
+        <Route path="/punch-lists" element={<PunchLists />} />
+        <Route path="/punch-lists/:projectId" element={<PunchListDetails />} />
+        <Route path="/invoicing" element={<Invoices />} />
+        <Route path="/invoices/new" element={<InvoiceEditor />} />
+        <Route path="/invoices/:invoiceId" element={<InvoiceDetails />} />
+        <Route path="/invoices/:invoiceId/edit" element={<InvoiceEditor />} />
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Layout>
+  );
+};
+
 const App: React.FC = () => {
   // Wrap in error boundary to catch any initialization errors
   try {
     return (
       <DataProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:projectId" element={<ProjectDetails />} />
-          <Route path="/projects/:projectId/photos" element={<ProjectPhotos />} />
-          <Route path="/projects/:projectId/tasks" element={<Tasks />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/map" element={<MapView />} />
-          <Route path="/team" element={<Team />} />
-          <Route path="/time-tracking" element={<TimeTracking />} />
-          <Route path="/punch-lists" element={<PunchLists />} />
-          <Route path="/punch-lists/:projectId" element={<PunchListDetails />} />
-          <Route path="/invoicing" element={<Invoices />} />
-          <Route path="/invoices/new" element={<InvoiceEditor />} />
-          <Route path="/invoices/:invoiceId" element={<InvoiceDetails />} />
-          <Route path="/invoices/:invoiceId/edit" element={<InvoiceEditor />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
+        <AppContent />
       </DataProvider>
     );
   } catch (error) {
@@ -58,8 +81,8 @@ const App: React.FC = () => {
         <div className="text-center p-8">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading App</h1>
           <p className="text-gray-600 mb-4">There was an error initializing ConstructTrack Pro</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Reload Page

@@ -5,7 +5,7 @@ import { UserCircleIcon, PlusIcon } from './icons/Icons';
 import AddTeamMemberModal from './AddTeamMemberModal';
 
 const ProfileMenu: React.FC = () => {
-  const { users, currentUser, setCurrentUser } = useData();
+  const { users, currentUser, setCurrentUser, logout } = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -94,6 +94,19 @@ const ProfileMenu: React.FC = () => {
                     <PlusIcon className="w-4 h-4 mr-2" />
                     Add New Member
                 </a>
+            </div>
+
+            <div className="border-t border-gray-100">
+                <button
+                    onClick={() => {
+                        logout();
+                        setIsOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    role="menuitem"
+                >
+                    Sign Out
+                </button>
             </div>
           </div>
         </div>
