@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import ProfileMenu from './ProfileMenu';
@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { SccLogoIcon } from './icons/Icons';
 import PWAFeatures from './PWAFeatures';
 import ChatAgent from './ChatAgent';
+import DataLoadingFallback from './DataLoadingFallback';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,7 +14,8 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="flex h-screen font-sans text-gray-900 bg-gray-100">
+    <Suspense fallback={<DataLoadingFallback />}>
+      <div className="flex h-screen font-sans text-gray-900 bg-gray-100">
       <div className="hidden md:flex">
         <Sidebar />
       </div>
@@ -46,6 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
       <PWAFeatures />
     </div>
+    </Suspense>
   );
 };
 

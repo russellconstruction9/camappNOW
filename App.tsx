@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider } from './hooks/useDataContext';
 import Layout from './components/Layout';
@@ -21,11 +21,13 @@ import InvoiceEditor from './components/InvoiceEditor';
 
 
 const App: React.FC = () => {
-  return (
-    <DataProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
+  // Wrap in error boundary to catch any initialization errors
+  try {
+    return (
+      <DataProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<ProjectDetails />} />
           <Route path="/projects/:projectId/photos" element={<ProjectPhotos />} />
@@ -43,11 +45,29 @@ const App: React.FC = () => {
           <Route path="/invoices/:invoiceId/edit" element={<InvoiceEditor />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
-    </DataProvider>
-  );
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </DataProvider>
+    );
+  } catch (error) {
+    console.error('App initialization error:', error);
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading App</h1>
+          <p className="text-gray-600 mb-4">There was an error initializing ConstructTrack Pro</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reload Page
+          </button>
+          <p className="text-sm text-gray-500 mt-4">Error: {error instanceof Error ? error.message : 'Unknown error'}</p>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default App;
