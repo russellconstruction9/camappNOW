@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/index.js"
+    }
+  ],
+  "env": {
+    "DB_HOST": "@db-host",
+    "DB_PORT": "@db-port",
+    "DB_NAME": "@db-name",
+    "DB_USER": "@db-user",
+    "DB_PASSWORD": "@db-password",
+    "JWT_SECRET": "@jwt-secret",
+    "GEMINI_API_KEY": "@gemini-api-key",
+    "GOOGLE_MAPS_API_KEY": "@google-maps-api-key"
+  }
+}
+
