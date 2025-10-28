@@ -3,7 +3,9 @@ import { GoogleGenAI, FunctionDeclaration, Type, GenerateContentResponse, Chat a
 import { useData } from './useDataContext';
 import { Chat, ProjectType, TaskStatus, User } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Resolve API key at runtime (guard missing keys on Vercel)
+const resolvedApiKey = (process.env.GEMINI_API_KEY || process.env.API_KEY) as string | undefined;
+const ai = resolvedApiKey ? new GoogleGenAI({ apiKey: resolvedApiKey }) : null;
 
 const functionDeclarations: FunctionDeclaration[] = [
     // Project Management
@@ -172,9 +174,11 @@ export const useGemini = () => {
     const [isLoading, setIsLoading] = useState(false);
     const dataContext = useData();
     const chatSessionRef = useRef<GeminiChat | null>(null);
+    const isEnabled = Boolean(ai);
 
     // Initialize chat session once
     useEffect(() => {
+        if (!ai) return; // AI disabled when no API key is set
         chatSessionRef.current = ai.chats.create({
             model: 'gemini-2.5-flash',
             config: { tools: [{ functionDeclarations }] }
@@ -342,5 +346,5 @@ export const useGemini = () => {
         }
     };
 
-    return { history, sendMessage, isLoading };
+    return { history, sendMessage, isLoading, isEnabled };
 };

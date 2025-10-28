@@ -14,7 +14,7 @@ const fileToDataUrl = (file: File): Promise<string> => {
 
 const ChatAgent: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
-    const { history, sendMessage, isLoading } = useGemini();
+    const { history, sendMessage, isLoading, isEnabled } = useGemini();
     const [input, setInput] = useState('');
     const [image, setImage] = useState<string | undefined>(undefined);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -63,6 +63,8 @@ const ChatAgent: React.FC = () => {
             setImagePreview(URL.createObjectURL(file));
         }
     };
+
+    if (!isEnabled) return null;
 
     return (
         <div className="relative" ref={agentRef}>
